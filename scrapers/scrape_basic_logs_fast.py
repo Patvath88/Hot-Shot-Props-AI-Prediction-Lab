@@ -78,6 +78,8 @@ def scrape_fast():
     print("Rows:", len(df))
 
     return df
-    
-    if __name__ == "__main__":
+
+
+# ⭐ MAKE SCRAPER RUN WHEN FILE IS EXECUTED
+if __name__ == "__main__":
     scrape_fast()
