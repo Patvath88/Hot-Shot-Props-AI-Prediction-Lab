@@ -1,70 +1,56 @@
-# train/train_models.py
+# train/train_model.py
+
 import os
 import pandas as pd
+import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
-import xgboost as xgb
-
-from utils.features import add_basic_features, get_feature_columns
-from utils.io_utils import load_game_logs, save_model
+from utils.features import get_feature_columns
 
 
-RANDOM_STATE = 42
-MODELS_DIR = "models"
+def train_stat_model(target: str, df_path="data/player_game_logs.csv", model_dir="models"):
+    """
+    Trains an XGBoost regression model for predicting an NBA stat.
+    target = "points", "rebounds", "assists", "threes" etc.
+    """
 
+    df = pd.read_csv(df_path)
 
-def train_target(df, target_col: str, model_name: str):
-    df = df.dropna(subset=[target_col])
+    # drop missing values for target
+    df = df.dropna(subset=[target])
+
     feature_cols = get_feature_columns()
 
+    # ensure all feature columns exist
+    missing = [c for c in feature_cols if c not in df.columns]
+    if missing:
+        raise Exception(f"Missing feature columns: {missing}")
+
     X = df[feature_cols]
-    y = df[target_col]
+    y = df[target]
 
     X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=RANDOM_STATE
+        X, y, test_size=0.2, random_state=42
     )
 
-    # XGBoost – balanced for accuracy & speed
     model = xgb.XGBRegressor(
         n_estimators=400,
-        max_depth=5,
-        learning_rate=0.05,
+        max_depth=6,
+        learning_rate=0.03,
         subsample=0.9,
         colsample_bytree=0.9,
-        reg_lambda=1.0,
-        random_state=RANDOM_STATE,
-        tree_method="hist",   # fast
+        random_state=42,
+        tree_method="hist",
     )
 
-    model.fit(
-        X_train,
-        y_train,
-        eval_set=[(X_val, y_val)],
-        eval_metric="mae",
-        verbose=False,
-    )
+    model.fit(X_train, y_train)
 
-    val_pred = model.predict(X_val)
-    mae = mean_absolute_error(y_val, val_pred)
-    print(f"{model_name} MAE: {mae:.3f}")
+    preds = model.predict(X_val)
+    mae = mean_absolute_error(y_val, preds)
+    print(f"{target.upper()} MAE: {mae:.3f}")
 
-    save_path = os.path.join(MODELS_DIR, f"{model_name}.json")
-    save_model(model, save_path)
-    print(f"Saved {model_name} to {save_path}")
+    os.makedirs(model_dir, exist_ok=True)
+    model.save_model(f"{model_dir}/{target}_xgb.json")
 
-
-def main():
-    df = load_game_logs()
-    df = add_basic_features(df)
-
-    # Ensure no weird inf/nan
-    df = df.replace([float("inf"), float("-inf")], pd.NA).dropna()
-
-    # Train separate models
-    train_target(df, "points", "points_xgb")
-    train_target(df, "rebounds", "rebounds_xgb")
-    train_target(df, "assists", "assists_xgb")
-
-
-if __name__ == "__main__":
-    main()
+    print(f"Saved → {model_dir}/{target}_xgb.json")
+    return mae
