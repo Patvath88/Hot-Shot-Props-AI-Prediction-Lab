@@ -57,7 +57,7 @@ if st.sidebar.button("🔄 Run FULL Pipeline"):
     run_pipeline_step("2️⃣ Building Dataset", "scrapers/build_dataset.py")
     run_pipeline_step("3️⃣ Training Models", "train/train_all.py")
     st.sidebar.success("🎉 Full pipeline completed!")
-    st.experimental_rerun()
+    st.rerun()
 
 st.sidebar.markdown("---")
 
