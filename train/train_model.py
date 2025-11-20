@@ -2,27 +2,24 @@
 
 import os
 import pandas as pd
-import xgboost as xgb
+import xgboost
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 from utils.features import get_feature_columns
 
 
-def train_stat_model(target, dataset_path="data/player_game_logs.csv"):
-    df = pd.read_csv(dataset_path)
-
+def train_stat_model(target):
+    df = pd.read_csv("data/player_game_logs.csv")
     df = df.dropna(subset=[target])
 
-    feature_cols = get_feature_columns()
-
-    X = df[feature_cols]
+    X = df[get_feature_columns()]
     y = df[target]
 
     X_train, X_val, y_train, y_val = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
 
-    model = xgb.XGBRegressor(
+    model = xgboost.XGBRegressor(
         n_estimators=350,
         max_depth=5,
         learning_rate=0.05,
@@ -42,4 +39,3 @@ def train_stat_model(target, dataset_path="data/player_game_logs.csv"):
     model.save_model(f"models/{target}_xgb.json")
 
     print(f"Saved → models/{target}_xgb.json")
-    return mae
