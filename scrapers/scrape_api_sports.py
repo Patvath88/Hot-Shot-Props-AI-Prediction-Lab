@@ -1,81 +1,62 @@
 import requests
 import pandas as pd
 import os
-from config import API_SPORTS_KEY, API_SPORTS_URL
+
+API_KEY = "cd765274223af1fd1878cdeb02d8aa9b"
+BASE = "https://v1.basketball.api-sports.io/"
 
 HEADERS = {
-    "x-apisports-key": API_SPORTS_KEY
+    "cd765274223af1fd1878cdeb02d8aa9b": API_KEY
 }
 
-def fetch_game_logs(season="2025-2026"):
-    print(f"📡 Fetching API-Sports NBA logs for {season}...")
+SEASON = "2025-2026"
 
+
+def get(endpoint, params):
+    r = requests.get(BASE + endpoint, headers=HEADERS, params=params)
+    r.raise_for_status()
+    return r.json()["response"]
+
+
+def scrape_api_sports():
+    print("🔍 Fetching API-Sports NBA Stats...")
+
+    games = get("games", {"season": SEASON, "league": 12})
     all_rows = []
-    page = 1
-    more = True
 
-    while more:
-        url = f"{API_SPORTS_URL}/games"
-        params = {
-            "league": "12",          # NBA
-            "season": season,
-            "page": page
-        }
+    for g in games:
+        game_id = g["id"]
+        date = g["date"].split("T")[0]
 
-        resp = requests.get(url, headers=HEADERS, params=params).json()
+        stats = get("games/statistics", {"id": game_id})
 
-        if "response" not in resp or len(resp["response"]) == 0:
-            more = False
-            break
+        for team in stats:
+            players = team["players"]
+            team_name = team["team"]["name"]
 
-        for game in resp["response"]:
-            game_id = game["id"]
-            date = game["date"].split("T")[0]
+            for p in players:
+                row = {
+                    "GAME_ID": game_id,
+                    "GAME_DATE": date,
+                    "team": team_name,
+                    "player_id": p["player"]["id"],
+                    "player_name": p["player"]["name"],
+                    "points": p["statistics"]["points"],
+                    "rebounds": p["statistics"]["rebounds"],
+                    "assists": p["statistics"]["assists"],
+                    "minutes": p["statistics"]["minutes"]
+                }
 
-            # Fetch boxscore for this game
-            box_url = f"{API_SPORTS_URL}/games/statistics"
-            box = requests.get(box_url, headers=HEADERS, params={"game": game_id}).json()
-
-            if "response" not in box:
-                continue
-
-            for team in box["response"]:
-                team_name = team["team"]["name"]
-
-                for p in team["players"]:
-                    if "points" not in p["statistics"]:
-                        continue
-
-                    stats = p["statistics"]
-
-                    row = {
-                        "GAME_DATE": date,
-                        "team": team_name,
-                        "player_name": p["player"]["name"],
-                        "points": stats["points"],
-                        "rebounds": stats["totReb"],
-                        "assists": stats["assists"],
-                        "minutes": stats["min"],
-                        "fg_pct": stats["fgp"],
-                        "fg3_pct": stats["tpp"],
-                        "ft_pct": stats["ftp"],
-                        "steals": stats["steals"],
-                        "blocks": stats["blocks"],
-                        "turnovers": stats["turnovers"]
-                    }
-                    all_rows.append(row)
-
-        page += 1
+                all_rows.append(row)
 
     df = pd.DataFrame(all_rows)
-
     os.makedirs("data", exist_ok=True)
     df.to_csv("data/player_game_logs_raw.csv", index=False)
 
-    print(f"✅ Saved RAW logs → data/player_game_logs_raw.csv")
-    print(f"📈 Total rows: {len(df)}")
+    print("Saved → data/player_game_logs_raw.csv")
+    print("Rows:", len(df))
     return df
 
 
 if __name__ == "__main__":
-    fetch_game_logs()
+    scrape_api_sports()
