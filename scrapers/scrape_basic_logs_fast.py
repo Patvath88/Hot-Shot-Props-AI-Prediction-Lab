@@ -1,70 +1,71 @@
 # scrapers/scrape_basic_logs_fast.py
 
-import sys, os, requests, pandas as pd
+import sys, os, time, requests, pandas as pd
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 sys.path.insert(0, ROOT_DIR)
 
+# REAL NBA HEADERS - REQUIRED
+HEADERS = {
+    "Host": "stats.nba.com",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "Accept": "application/json, text/plain, */*",
+    "Referer": "https://www.nba.com/",
+    "Origin": "https://www.nba.com",
+    "Connection": "keep-alive",
+}
 
 def scrape_fast(season="2024-25"):
     """
-    Fast, Streamlit-safe scraper using BallDontLie API.
+    Scrape NBA game logs reliably from stats.nba.com 
+    using the leaguegamelog endpoint.
     """
 
-    print("🔍 Fetching game logs from BallDontLie API...")
-    base_url = "https://api.balldontlie.io/v1/stats"
+    print("🔍 Fetching NBA Game Logs (Official Stats API)...")
 
-    all_rows = []
-    page = 1
-
-    headers = {
-        "Authorization": "",  # leave blank for free tier
+    url = "https://stats.nba.com/stats/leaguegamelog"
+    params = {
+        "Counter": "10000",
+        "Direction": "DESC",
+        "LeagueID": "00",
+        "PlayerOrTeam": "P",
+        "Season": season,
+        "SeasonType": "Regular Season",
+        "Sorter": "PLAYER_NAME"
     }
 
-    season_year = season.split("-")[0]
+    r = requests.get(url, headers=HEADERS, params=params)
 
-    while True:
-        url = f"{base_url}?seasons[]={season_year}&per_page=100&page={page}"
-        print(f"Fetching page {page}...")
-        resp = requests.get(url, headers=headers)
+    if r.status_code != 200:
+        raise Exception(f"NBA API error: {r.status_code}")
 
-        if resp.status_code != 200:
-            print("❌ Error fetching page", page)
-            break
+    data = r.json()
 
-        data = resp.json()
-        rows = data.get("data", [])
+    rows = data["resultSets"][0]["rowSet"]
+    headers = data["resultSets"][0]["headers"]
 
-        if not rows:
-            print("No more pages.")
-            break
+    df = pd.DataFrame(rows, columns=headers)
 
-        all_rows.extend(rows)
-        page += 1
-
-    print(f"Total logs fetched: {len(all_rows)}")
-
-    # Convert to DataFrame
-    df = pd.json_normalize(all_rows)
-
-    # --- FIX: Correct column names ---
+    # Standardize column names
     df = df.rename(columns={
-        "pts": "points",
-        "reb": "rebounds",
-        "ast": "assists",
-        "min": "minutes",
-        "game.date": "GAME_DATE",
+        "PLAYER_NAME": "player_name",
+        "PTS": "points",
+        "REB": "rebounds",
+        "AST": "assists",
+        "MIN": "minutes",
+        "GAME_DATE": "GAME_DATE",
     })
 
-    # --- FIX: Use correct JSON fields ---
-    df["player_name"] = (
-        df["player.first_name"].fillna("") + " " + df["player.last_name"].fillna("")
-    ).str.strip()
+    # Force minutes into number
+    df["minutes"] = pd.to_numeric(df["minutes"], errors="coerce")
 
+    # SAVE FILE
+    os.makedirs("data", exist_ok=True)
     df.to_csv("data/player_game_logs_raw.csv", index=False)
-    print("Saved RAW logs → data/player_game_logs_raw.csv")
 
+    print(f"Saved RAW logs → data/player_game_logs_raw.csv")
+    print(f"Rows: {len(df)}")
     return df
 
 
