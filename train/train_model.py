@@ -1,33 +1,22 @@
 import pandas as pd
 import xgboost as xgb
 import os
-
-FEATURES = [
-    "points_rolling_5", "rebounds_rolling_5", "assists_rolling_5",
-    "minutes_rolling_5", "form_score"
-]
+from utils.features import get_feature_columns
 
 def train_stat_model(target):
     df = pd.read_csv("data/player_game_logs.csv")
 
-    X = df[FEATURES]
+    X = df[get_feature_columns()]
     y = df[target]
 
-    dtrain = xgb.DMatrix(X, label=y)
-
-    params = {
-        "objective": "reg:squarederror",
-        "eta": 0.05,
-        "max_depth": 4,
-    }
-
-    model = xgb.train(params, dtrain, num_boost_round=150)
+    model = xgb.XGBRegressor(
+        n_estimators=300,
+        learning_rate=0.07,
+        max_depth=6
+    )
+    model.fit(X, y)
 
     os.makedirs("models", exist_ok=True)
     model.save_model(f"models/{target}_xgb.json")
 
-    print(f"✅ Trained model: {target}")
-
-
-if __name__ == "__main__":
-    train_stat_model("points")
+    print(f"Saved: models/{target}_xgb.json")
