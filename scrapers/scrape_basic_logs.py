@@ -1,7 +1,9 @@
+# scrapers/scrape_basic_logs.py
+
 import sys, os
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
-sys.path.insert(0, ROOT_DIR)# scrapers/scrape_basic_logs.py
+sys.path.insert(0, ROOT_DIR)
 
 import pandas as pd
 import time
@@ -11,7 +13,7 @@ from nba_api.stats.endpoints import playergamelog
 
 
 def scrape_basic_game_logs(season="2024-25"):
-    print("Fetching active players...")
+
     all_players = players.get_active_players()
     rows = []
 
@@ -26,22 +28,21 @@ def scrape_basic_game_logs(season="2024-25"):
             logs["player_name"] = name
             rows.append(logs)
         except Exception as e:
-            print(f"Error for {name}: {e}")
+            print("ERROR:", name, e)
 
         time.sleep(0.4)
 
     df = pd.concat(rows, ignore_index=True)
 
-    df = df.rename(columns={
+    df.rename(columns={
         "PTS": "points",
         "REB": "rebounds",
         "AST": "assists",
         "MIN": "minutes"
-    })
+    }, inplace=True)
 
     df.to_csv("data/player_game_logs_raw.csv", index=False)
-
-    print("Saved → data/player_game_logs_raw.csv")
+    print("Saved raw logs → data/player_game_logs_raw.csv")
     print("Rows:", len(df))
 
 
