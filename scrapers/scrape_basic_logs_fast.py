@@ -7,36 +7,39 @@ sys.path.insert(0, ROOT_DIR)
 
 def scrape_fast(season="2025-26"):
     """
-    Scrape FULL NBA game logs for any season using the NBA Stats Proxy.
-    This bypasses Cloudflare and works perfectly in Streamlit Cloud.
+    Scrape FULL NBA game logs using nba-api.com mirror.
+    Supports ANY season, works in Streamlit Cloud.
     """
 
-    print(f"🔍 Fetching NBA Game Logs for {season} (NBA Stats Proxy)...")
+    print(f"🔍 Fetching NBA Game Logs for {season} (nba-api.com mirror)...")
 
-    url = "https://nba-stats-proxy.fly.dev/leaguegamelog"
+    url = "https://nba-api.com/api/leaguegamelog"
     params = {
         "Season": season,
         "SeasonType": "Regular Season",
         "PlayerOrTeam": "P"
     }
 
-    r = requests.get(url, params=params, timeout=25)
-    if r.status_code != 200:
-        raise Exception(f"API error {r.status_code}: {r.text}")
+    try:
+        r = requests.get(url, params=params, timeout=30)
+        r.raise_for_status()
+    except Exception as e:
+        raise Exception(f"❌ Failed to fetch logs: {e}")
 
     data = r.json()
 
-    # Standard NBA Stats API structure
+    if "resultSets" not in data:
+        raise Exception("❌ Invalid response from nba-api.com")
+
     result = data["resultSets"][0]
     headers = result["headers"]
     rows = result["rowSet"]
 
     if len(rows) == 0:
-        raise Exception("❌ No logs returned — season may not be supported yet.")
+        raise Exception("❌ No logs returned — season may not be published yet.")
 
     df = pd.DataFrame(rows, columns=headers)
 
-    # Normalize useful columns
     df = df.rename(columns={
         "PLAYER_NAME": "player_name",
         "PTS": "points",
