@@ -78,3 +78,6 @@ def scrape_fast():
     print("Rows:", len(df))
 
     return df
+    
+    if __name__ == "__main__":
+    scrape_fast()
