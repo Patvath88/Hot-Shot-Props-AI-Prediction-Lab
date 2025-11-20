@@ -9,17 +9,22 @@ from train.train_model import train_stat_model
 
 
 def main():
-    print("Training POINTS...")
+    print("🔥 Training all models...")
+
+    print("\n➡️ Training POINTS...")
     train_stat_model("points")
 
-    print("\nTraining REBOUNDS...")
+    print("\n➡️ Training REBOUNDS...")
     train_stat_model("rebounds")
 
-    print("\nTraining ASSISTS...")
+    print("\n➡️ Training ASSISTS...")
     train_stat_model("assists")
 
     print("\n🎉 All models trained successfully!")
 
 
-if __name__ == "__main__":
-    main()
+# DO **NOT** auto-run.
+# Streamlit imports this file on startup; auto-running will crash the app.
+#
+# if __name__ == "__main__":
+#     main()
