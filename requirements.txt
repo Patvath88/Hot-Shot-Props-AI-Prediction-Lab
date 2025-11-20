@@ -1,9 +1,6 @@
 streamlit
 pandas
 numpy
-tqdm
 requests
-nba_api
-scikit-learn
 xgboost
-python-dateutil
+scikit-learn
