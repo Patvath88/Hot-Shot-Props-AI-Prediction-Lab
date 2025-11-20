@@ -1,4 +1,4 @@
-from train.train_model import train_stat_model
+from train_model import train_stat_model
 
 def main():
     print("Training POINTS...")
