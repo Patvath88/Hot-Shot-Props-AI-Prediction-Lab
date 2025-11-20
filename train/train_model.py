@@ -13,6 +13,8 @@ from utils.features import get_feature_columns
 
 
 def train_stat_model(target):
+    print(f"🎯 Training model for: {target.upper()}")
+
     df = pd.read_csv("data/player_game_logs.csv")
 
     df = df.dropna(subset=[target])
@@ -35,12 +37,16 @@ def train_stat_model(target):
     )
 
     model.fit(X_train, y_train)
+
     preds = model.predict(X_val)
     mae = mean_absolute_error(y_val, preds)
-
-    print(f"{target.upper()} MAE: {mae:.3f}")
+    print(f"📉 {target.upper()} MAE: {mae:.3f}")
 
     os.makedirs("models", exist_ok=True)
     model.save_model(f"models/{target}_xgb.json")
+    print(f"💾 Saved → models/{target}_xgb.json")
 
-    print(f"Saved → models/{target}_xgb.json")
+
+# NO AUTO RUN!!!
+# if __name__ == "__main__":
+#     train_stat_model("points")
