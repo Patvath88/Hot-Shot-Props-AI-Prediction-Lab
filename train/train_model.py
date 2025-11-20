@@ -1,8 +1,12 @@
 # train/train_model.py
 
-import os
+import sys, os
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+sys.path.insert(0, ROOT_DIR)
+
 import pandas as pd
-import xgboost
+import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 from utils.features import get_feature_columns
@@ -10,6 +14,7 @@ from utils.features import get_feature_columns
 
 def train_stat_model(target):
     df = pd.read_csv("data/player_game_logs.csv")
+
     df = df.dropna(subset=[target])
 
     X = df[get_feature_columns()]
@@ -19,10 +24,10 @@ def train_stat_model(target):
         X, y, test_size=0.2, random_state=42
     )
 
-    model = xgboost.XGBRegressor(
-        n_estimators=350,
-        max_depth=5,
-        learning_rate=0.05,
+    model = xgb.XGBRegressor(
+        n_estimators=300,
+        max_depth=6,
+        learning_rate=0.04,
         subsample=0.9,
         colsample_bytree=0.9,
         random_state=42,
