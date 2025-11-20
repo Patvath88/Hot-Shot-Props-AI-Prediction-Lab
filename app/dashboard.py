@@ -3,7 +3,19 @@ import pandas as pd
 import xgboost as xgb
 import os
 import subprocess
-from utils.features import get_feature_columns
+def get_feature_columns():
+    return [
+        "points_last5",
+        "rebounds_last5",
+        "assists_last5",
+        "minutes_last5",
+        "points_avg",
+        "rebounds_avg",
+        "assists_avg",
+        "minutes_avg",
+        "usage_rate",
+        "form_score"
+    ]
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
