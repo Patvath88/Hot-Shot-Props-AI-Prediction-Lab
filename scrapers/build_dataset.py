@@ -1,47 +1,65 @@
-# scrapers/build_dataset.py
+# scrapers/scrape_basic_logs_fast.py
 
-import sys, os
+import sys, os, requests, pandas as pd
+
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 sys.path.insert(0, ROOT_DIR)
 
-import pandas as pd
-from utils.features import add_basic_features
 
+def scrape_fast(season="2024-25"):
+    """
+    Fast, Streamlit-friendly scraper using BallDontLie API.
+    """
 
-def build_dataset():
-    print("Loading raw logs...")
+    print("🔍 Fetching game logs from BallDontLie API...")
+    base_url = "https://api.balldontlie.io/v1/stats"
 
-    raw_path = "data/player_game_logs_raw.csv"
-    if not os.path.exists(raw_path):
-        raise FileNotFoundError("Raw logs missing. Run scraper first.")
+    all_rows = []
+    page = 1
+    season_year = season.split("-")[0]
 
-    df = pd.read_csv(raw_path)
+    while True:
+        url = f"{base_url}?seasons[]={season_year}&per_page=100&page={page}"
+        print(f"Fetching page {page}...")
+        resp = requests.get(url)
 
-    # Ensure GAME_DATE exists and is parsed
-    if "GAME_DATE" not in df.columns:
-        # NBA API sometimes uses GAME_DATE column in uppercase or lowercase
-        date_col = [c for c in df.columns if c.lower() == "game_date"][0]
-        df.rename(columns={date_col: "GAME_DATE"}, inplace=True)
+        if resp.status_code != 200:
+            print("❌ Error fetching page", page)
+            break
 
-    df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
+        data = resp.json()
+        rows = data.get("data", [])
 
-    # Must have these before engineering
-    required_base = ["player_name", "points", "rebounds", "assists", "minutes"]
-    for col in required_base:
-        if col not in df:
-            raise ValueError(f"Missing base column: {col}")
+        if not rows:
+            print("No more pages.")
+            break
 
-    # --- APPLY FEATURE ENGINEERING ---
-    df = add_basic_features(df)
+        all_rows.extend(rows)
+        page += 1
 
-    # Print columns for debugging
-    print("Final columns:", list(df.columns))
-    print("Rows:", len(df))
+    print(f"Total logs fetched: {len(all_rows)}")
 
-    df.to_csv("data/player_game_logs.csv", index=False)
-    print("Saved → data/player_game_logs.csv")
+    df = pd.json_normalize(all_rows)
+
+    df = df.rename(columns={
+        "pts": "points",
+        "reb": "rebounds",
+        "ast": "assists",
+        "min": "minutes",
+        "game.date": "GAME_DATE",
+    })
+
+    df["player_name"] = (
+        df["player.first_name"].fillna("") + " " + df["player.last_name"].fillna("")
+    ).str.strip()
+
+    os.makedirs("data", exist_ok=True)
+    df.to_csv("data/player_game_logs_raw.csv", index=False)
+
+    print("Saved RAW logs → data/player_game_logs_raw.csv")
+    return df
 
 
 if __name__ == "__main__":
-    build_dataset()
+    scrape_fast()
