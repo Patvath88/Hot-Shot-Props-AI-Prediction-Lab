@@ -1,33 +1,46 @@
-# scrapers/build_dataset.py
+# scrapers/scrape_basic_logs.py
 
 import pandas as pd
-from utils.features import add_basic_features
+import time
+from tqdm import tqdm
+from nba_api.stats.static import players
+from nba_api.stats.endpoints import playergamelog
 
 
-def build_dataset():
-    print("Loading raw logs...")
-    df = pd.read_csv("data/player_game_logs_raw.csv")
+def scrape_basic_game_logs(season="2024-25"):
+    print("Fetching active players...")
+    all_players = players.get_active_players()
+    rows = []
 
-    # Ensure GAME_DATE is a date
-    df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
+    for p in tqdm(all_players, desc="Scraping player logs"):
+        pid = p["id"]
+        name = p["full_name"]
 
-    # Add derived features
-    df = add_basic_features(df)
+        try:
+            logs = playergamelog.PlayerGameLog(
+                player_id=pid, season=season
+            ).get_data_frames()[0]
+            logs["player_name"] = name
+            rows.append(logs)
+        except Exception as e:
+            print(f"Error for {name}: {e}")
 
-    # Keep only necessary columns
-    needed = [
-        "player_name", "GAME_DATE",
-        "points", "rebounds", "assists", "minutes",
-    ]
-    df = df[[c for c in df.columns if c in needed or "rolling" in c or "avg_season" in c or c == "form_score"]]
+        time.sleep(0.4)
 
-    df.to_csv("data/player_game_logs.csv", index=False)
+    df = pd.concat(rows, ignore_index=True)
 
-    print("Saved → data/player_game_logs.csv")
+    df = df.rename(columns={
+        "PTS": "points",
+        "REB": "rebounds",
+        "AST": "assists",
+        "MIN": "minutes"
+    })
+
+    df.to_csv("data/player_game_logs_raw.csv", index=False)
+
+    print("Saved → data/player_game_logs_raw.csv")
     print("Rows:", len(df))
-
-    return df
 
 
 if __name__ == "__main__":
-    build_dataset()
+    scrape_basic_game_logs()
