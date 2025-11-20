@@ -1,4 +1,7 @@
-# scrapers/scrape_basic_logs.py
+import sys, os
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+sys.path.insert(0, ROOT_DIR)# scrapers/scrape_basic_logs.py
 
 import pandas as pd
 import time
