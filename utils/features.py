@@ -8,10 +8,10 @@ def add_basic_features(df):
     df = df.sort_values(["player_name", "GAME_DATE"])
     g = df.groupby("player_name")
 
-    df["points_rolling_5"] = g["points"].rolling(ROLL, min_periods=1).mean().reset_index(0, drop=True)
-    df["rebounds_rolling_5"] = g["rebounds"].rolling(ROLL, min_periods=1).mean().reset_index(0, drop=True)
-    df["assists_rolling_5"] = g["assists"].rolling(ROLL, min_periods=1).mean().reset_index(0, drop=True)
-    df["minutes_rolling"] = g["minutes"].rolling(ROLL, min_periods=1).mean().reset_index(0, drop=True)
+    df["points_rolling_5"] = g["points"].rolling(ROLL, 1).mean().reset_index(0, drop=True)
+    df["rebounds_rolling_5"] = g["rebounds"].rolling(ROLL, 1).mean().reset_index(0, drop=True)
+    df["assists_rolling_5"] = g["assists"].rolling(ROLL, 1).mean().reset_index(0, drop=True)
+    df["minutes_rolling"] = g["minutes"].rolling(ROLL, 1).mean().reset_index(0, drop=True)
 
     df["points_avg_season"] = g["points"].transform("mean")
     df["rebounds_avg_season"] = g["rebounds"].transform("mean")
@@ -19,9 +19,9 @@ def add_basic_features(df):
     df["minutes_avg_season"] = g["minutes"].transform("mean")
 
     df["form_score"] = (
-        df["points_rolling_5"] * 0.5 +
-        df["rebounds_rolling_5"] * 0.3 +
-        df["assists_rolling_5"] * 0.2
+        0.5 * df["points_rolling_5"] +
+        0.3 * df["rebounds_rolling_5"] +
+        0.2 * df["assists_rolling_5"]
     )
 
     return df
