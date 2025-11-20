@@ -57,7 +57,8 @@ if st.sidebar.button("🔄 Run FULL Pipeline"):
     run_pipeline_step("2️⃣ Building Dataset", "scrapers/build_dataset.py")
     run_pipeline_step("3️⃣ Training Models", "train/train_all.py")
     st.sidebar.success("🎉 Full pipeline completed!")
-    st.rerun()
+    st.rerun()   # ← FIXED
+
 
 st.sidebar.markdown("---")
 
@@ -81,7 +82,7 @@ st.sidebar.markdown("---")
 def load_dataset():
     path = os.path.join(ROOT_DIR, "data/player_game_logs.csv")
     if not os.path.exists(path):
-        st.warning("Dataset missing. Run the full pipeline first.")
+        st.warning("Dataset missing. Run the FULL pipeline first.")
         return pd.DataFrame()
     return pd.read_csv(path)
 
@@ -98,12 +99,16 @@ def load_model(target):
 
 df = load_dataset()
 
+# If dataset is empty → stop UI from loading  
 if df.empty:
     st.title("🏀 NBA Player Predictor")
     st.info("Run the FULL pipeline (left sidebar) to initialize everything.")
     st.stop()
 
-# Load models
+
+# =====================================================================
+# LOAD MODELS
+# =====================================================================
 points_model = load_model("points")
 reb_model = load_model("rebounds")
 ast_model = load_model("assists")
