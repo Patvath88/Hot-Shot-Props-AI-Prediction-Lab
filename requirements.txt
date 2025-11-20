@@ -1,8 +1,7 @@
 streamlit
 pandas
 numpy
+tqdm
+nba_api
 scikit-learn
 xgboost
-python-dotenv
-requests
-nba_api
