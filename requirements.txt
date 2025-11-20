@@ -5,3 +5,5 @@ tqdm
 nba_api
 scikit-learn
 xgboost
+requests
+python-dateutil
