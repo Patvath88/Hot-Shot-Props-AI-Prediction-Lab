@@ -3,16 +3,12 @@
 import streamlit as st
 import pandas as pd
 import xgboost as xgb
-import numpy as np
-
 from utils.features import get_feature_columns
 
-st.set_page_config(page_title="NBA Player Stat Predictor", layout="wide")
-
-# ---------------- Load Data & Models ---------------- #
+st.set_page_config(page_title="NBA Player Predictor", layout="wide")
 
 @st.cache_data
-def load_logs():
+def load_dataset():
     return pd.read_csv("data/player_game_logs.csv")
 
 @st.cache_resource
@@ -22,71 +18,38 @@ def load_model(target):
     return model
 
 
-df = load_logs()
+df = load_dataset()
+
 points_model = load_model("points")
 reb_model = load_model("rebounds")
 ast_model = load_model("assists")
 
 feature_cols = get_feature_columns()
 
+st.title("🏀 NBA Player Stat Predictor")
 
-# ---------------- Sidebar UI ---------------- #
+players = sorted(df["player_name"].unique())
+player = st.selectbox("Choose a Player", players)
 
-st.sidebar.header("Player Selection")
+player_data = df[df["player_name"] == player].sort_values("GAME_DATE")
 
-players = sorted(df["player_name"].dropna().unique())
-player = st.sidebar.selectbox("Player", players)
-
-player_df = df[df["player_name"] == player].sort_values("GAME_DATE")
-
-
-# ---------------- Prediction Logic ---------------- #
-
-latest = player_df.tail(1).iloc[0]
+latest = player_data.tail(1).iloc[0]
 
 X = latest[feature_cols].values.reshape(1, -1)
 
-pred_points = float(points_model.predict(X)[0])
-pred_rebounds = float(reb_model.predict(X)[0])
-pred_assists = float(ast_model.predict(X)[0])
-
-# Form score
-form_score = float(latest.get("form_score", np.nan))
-
-# Difficulty (lower opp def rating = better)
-difficulty = float(latest.get("DEF_RATING", np.nan))
-
-
-# ---------------- Dashboard Layout ---------------- #
-
-st.title(f"🏀 {player} — Next Game Projections")
+pred_pts = float(points_model.predict(X)[0])
+pred_reb = float(reb_model.predict(X)[0])
+pred_ast = float(ast_model.predict(X)[0])
 
 col1, col2, col3 = st.columns(3)
+col1.metric("Projected Points", f"{pred_pts:.1f}")
+col2.metric("Projected Rebounds", f"{pred_reb:.1f}")
+col3.metric("Projected Assists", f"{pred_ast:.1f}")
 
-col1.metric("Projected POINTS", f"{pred_points:.1f}")
-col2.metric("Projected REBOUNDS", f"{pred_rebounds:.1f}")
-col3.metric("Projected ASSISTS", f"{pred_assists:.1f}")
-
-st.markdown("----")
-
-colA, colB = st.columns([1, 1])
-
-with colA:
-    st.subheader("📈 Recent Performance (Last 10 Games)")
-    recent = player_df.tail(10)[["GAME_DATE", "points", "rebounds", "assists"]]
-    st.line_chart(recent.set_index("GAME_DATE"))
-
-with colB:
-    st.subheader("🔥 Player Form")
-    st.metric("Form Score", f"{form_score:.2f}")
-    st.metric("Opponent Difficulty (DEF Rating)", f"{difficulty:.1f}")
-
-st.markdown("----")
-
-# ---------------- Advanced Context ---------------- #
-
-st.subheader("📊 Detailed Feature Table")
-st.dataframe(
-    latest[feature_cols + ["points", "rebounds", "assists"]],
-    hide_index=True
+st.markdown("### Last 10 Games")
+st.line_chart(
+    player_data.tail(10).set_index("GAME_DATE")[["points", "rebounds", "assists"]]
 )
+
+st.markdown("### Feature Breakdown")
+st.dataframe(latest[feature_cols])
