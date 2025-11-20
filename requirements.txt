@@ -5,3 +5,5 @@ numpy
 xgboost
 scikit-learn
 python-dateutil
+matplotlib
+plotly
