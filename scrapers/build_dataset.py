@@ -1,65 +1,46 @@
-# scrapers/scrape_basic_logs_fast.py
+# scrapers/build_dataset.py
 
-import sys, os, requests, pandas as pd
-
+import sys, os
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 sys.path.insert(0, ROOT_DIR)
 
+import pandas as pd
+from utils.features import add_basic_features
 
-def scrape_fast(season="2024-25"):
-    """
-    Fast, Streamlit-friendly scraper using BallDontLie API.
-    """
 
-    print("🔍 Fetching game logs from BallDontLie API...")
-    base_url = "https://api.balldontlie.io/v1/stats"
+def build_dataset():
+    print("📦 Loading raw logs...")
 
-    all_rows = []
-    page = 1
-    season_year = season.split("-")[0]
+    raw_path = "data/player_game_logs_raw.csv"
+    if not os.path.exists(raw_path):
+        raise FileNotFoundError("❌ Raw logs missing — run scraper first!")
 
-    while True:
-        url = f"{base_url}?seasons[]={season_year}&per_page=100&page={page}"
-        print(f"Fetching page {page}...")
-        resp = requests.get(url)
+    df = pd.read_csv(raw_path)
 
-        if resp.status_code != 200:
-            print("❌ Error fetching page", page)
-            break
+    if "GAME_DATE" not in df.columns:
+        raise ValueError("❌ GAME_DATE not found in raw logs.")
 
-        data = resp.json()
-        rows = data.get("data", [])
+    df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"], errors="coerce")
 
-        if not rows:
-            print("No more pages.")
-            break
+    required = ["player_name", "points", "rebounds", "assists", "minutes"]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"❌ Missing base column: {col}")
 
-        all_rows.extend(rows)
-        page += 1
+    df = add_basic_features(df)
 
-    print(f"Total logs fetched: {len(all_rows)}")
-
-    df = pd.json_normalize(all_rows)
-
-    df = df.rename(columns={
-        "pts": "points",
-        "reb": "rebounds",
-        "ast": "assists",
-        "min": "minutes",
-        "game.date": "GAME_DATE",
-    })
-
-    df["player_name"] = (
-        df["player.first_name"].fillna("") + " " + df["player.last_name"].fillna("")
-    ).str.strip()
+    print("📊 Final dataset columns:", list(df.columns))
+    print("📈 Rows:", len(df))
 
     os.makedirs("data", exist_ok=True)
-    df.to_csv("data/player_game_logs_raw.csv", index=False)
+    df.to_csv("data/player_game_logs.csv", index=False)
 
-    print("Saved RAW logs → data/player_game_logs_raw.csv")
-    return df
+    print("✅ Saved processed dataset → data/player_game_logs.csv")
 
 
-if __name__ == "__main__":
-    scrape_fast()
+# IMPORTANT: Do NOT auto-run.
+# Streamlit imports this file on startup, so auto-running breaks the app.
+#
+# if __name__ == "__main__":
+#     build_dataset()
