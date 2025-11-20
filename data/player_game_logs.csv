@@ -1,1 +1,15 @@
-
+points
+rebounds
+assists
+minutes
+usage_rate (optional)
+pace
+DEF_RATING
+form_score
+points_rolling_5
+rebounds_rolling_5
+assists_rolling_5
+minutes_rolling
+points_avg_season
+rebounds_avg_season
+assists_avg_season
