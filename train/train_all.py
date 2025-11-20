@@ -12,7 +12,7 @@ def main():
     print("\nTraining ASSISTS model...")
     train_stat_model("assists")
 
-    print("\nAll models trained successfully.")
+    print("\nAll models trained successfully!")
 
 if __name__ == "__main__":
     main()
