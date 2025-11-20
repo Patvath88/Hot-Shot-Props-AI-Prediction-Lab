@@ -13,10 +13,9 @@ from utils.features import get_feature_columns
 
 
 def train_stat_model(target):
-    print(f"🎯 Training model for: {target.upper()}")
+    print(f"🎯 Training {target.upper()} model...")
 
-    df = pd.read_csv("data/player_game_logs.csv")
-
+    df = pd.read_csv(os.path.join(ROOT_DIR, "data/player_game_logs.csv"))
     df = df.dropna(subset=[target])
 
     X = df[get_feature_columns()]
@@ -32,21 +31,21 @@ def train_stat_model(target):
         learning_rate=0.04,
         subsample=0.9,
         colsample_bytree=0.9,
-        random_state=42,
-        tree_method="hist"
+        tree_method="hist",
+        random_state=42
     )
 
     model.fit(X_train, y_train)
-
     preds = model.predict(X_val)
     mae = mean_absolute_error(y_val, preds)
+
     print(f"📉 {target.upper()} MAE: {mae:.3f}")
 
-    os.makedirs("models", exist_ok=True)
-    model.save_model(f"models/{target}_xgb.json")
-    print(f"💾 Saved → models/{target}_xgb.json")
+    # FIXED MODEL SAVE PATH
+    model_dir = os.path.join(ROOT_DIR, "models")
+    os.makedirs(model_dir, exist_ok=True)
 
+    model_path = os.path.join(model_dir, f"{target}_xgb.json")
+    model.save_model(model_path)
 
-# NO AUTO RUN!!!
-# if __name__ == "__main__":
-#     train_stat_model("points")
+    print(f"💾 Saved → {model_path}")
