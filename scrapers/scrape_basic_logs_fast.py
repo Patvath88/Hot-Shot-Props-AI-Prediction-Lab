@@ -9,7 +9,7 @@ sys.path.insert(0, ROOT_DIR)
 
 def scrape_fast(season="2024-25"):
     """
-    Fast, Streamlit-safe scraper using balldontlie.io API instead of nba_api.
+    Fast, Streamlit-safe scraper using BallDontLie API.
     """
 
     print("🔍 Fetching game logs from BallDontLie API...")
@@ -22,17 +22,19 @@ def scrape_fast(season="2024-25"):
         "Authorization": "",  # leave blank for free tier
     }
 
+    season_year = season.split("-")[0]
+
     while True:
-        url = f"{base_url}?seasons[]={season.split('-')[0]}&per_page=100&page={page}"
+        url = f"{base_url}?seasons[]={season_year}&per_page=100&page={page}"
         print(f"Fetching page {page}...")
         resp = requests.get(url, headers=headers)
 
         if resp.status_code != 200:
-            print("Error fetching page", page)
+            print("❌ Error fetching page", page)
             break
 
         data = resp.json()
-        rows = data["data"]
+        rows = data.get("data", [])
 
         if not rows:
             print("No more pages.")
@@ -46,10 +48,8 @@ def scrape_fast(season="2024-25"):
     # Convert to DataFrame
     df = pd.json_normalize(all_rows)
 
-    # Standardize columns to match model training expectations
+    # --- FIX: Correct column names ---
     df = df.rename(columns={
-        "player.first_name": "player_first",
-        "player.last_name": "player_last",
         "pts": "points",
         "reb": "rebounds",
         "ast": "assists",
@@ -57,7 +57,10 @@ def scrape_fast(season="2024-25"):
         "game.date": "GAME_DATE",
     })
 
-    df["player_name"] = df["player_first"] + " " + df["player_last"]
+    # --- FIX: Use correct JSON fields ---
+    df["player_name"] = (
+        df["player.first_name"].fillna("") + " " + df["player.last_name"].fillna("")
+    ).str.strip()
 
     df.to_csv("data/player_game_logs_raw.csv", index=False)
     print("Saved RAW logs → data/player_game_logs_raw.csv")
