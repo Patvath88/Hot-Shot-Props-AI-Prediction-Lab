@@ -1,68 +1,80 @@
-# scrapers/scrape_basic_logs_fast.py
-
-import sys, os, pandas as pd, requests
+import sys, os, requests, pandas as pd
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
 sys.path.insert(0, ROOT_DIR)
 
 
-def scrape_fast(season="2024-25"):
+def scrape_fast():
     """
-    CLOUD-SAFE SCRAPER:
-    Uses a stable NBA stats mirror that works on Streamlit Cloud.
+    Scrape **CURRENT NBA GAME LOGS** from ESPN's public API.
+    Works for 2025–2026 season + pulls most recent games.
     """
 
-    print("🔍 Fetching NBA game logs (Cloud-Safe Mirror)...")
+    print("🔍 Fetching NBA Game Logs (ESPN API)...")
 
-    # This endpoint mirrors the official gamelog API
-    url = "https://nba-api.fly.dev/leaguegamelog"
+    all_rows = []
 
-    params = {
-        "season": season,
-        "seasonType": "Regular Season"
-    }
+    # ESPN API for scoreboard (gets LAST ~7 days)
+    scoreboard_url = "https://site.api.espn.com/apis/v2/sports/basketball/nba/scoreboard"
 
-    response = requests.get(url, params=params, timeout=15)
+    scoreboard = requests.get(scoreboard_url, timeout=20).json()
+    events = scoreboard.get("events", [])
 
-    if response.status_code != 200:
-        raise Exception(f"API error: {response.status_code}\n{response.text}")
+    print(f"Found {len(events)} games...")
 
-    data = response.json()
+    for game in events:
+        game_id = game["id"]
 
-    if "rowSet" not in data:
-        raise Exception("Invalid response format from API mirror.")
+        box_url = f"https://site.api.espn.com/apis/v2/sports/basketball/nba/summary?event={game_id}"
+        box = requests.get(box_url, timeout=20).json()
 
-    rows = data["rowSet"]
-    headers = data["headers"]
+        competitions = game.get("competitions", [])
+        if not competitions:
+            continue
 
-    df = pd.DataFrame(rows, columns=headers)
+        date = competitions[0]["date"].split("T")[0]
 
-    # Standardize columns
-    df = df.rename(columns={
-        "PLAYER_NAME": "player_name",
-        "PTS": "points",
-        "REB": "rebounds",
-        "AST": "assists",
-        "MIN": "minutes",
-        "GAME_DATE": "GAME_DATE"
-    })
+        # Get team-level player stats
+        for team in box.get("boxscore", {}).get("players", []):
+            team_name = team["team"]["displayName"]
 
-    df["minutes"] = pd.to_numeric(df["minutes"], errors="coerce")
-    df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"], errors="coerce")
+            for p in team.get("statistics", []):
+                player_name = p.get("athlete", {}).get("displayName", "")
+                stats = p.get("stats", [])
+
+                row = {
+                    "GAME_DATE": date,
+                    "team": team_name,
+                    "player_name": player_name,
+                }
+
+                # stats are dynamic strings like "23 PTS", "10 REB"
+                for s in stats:
+                    if "PTS" in s:
+                        row["points"] = int(s.split(" ")[0])
+                    if "REB" in s:
+                        row["rebounds"] = int(s.split(" ")[0])
+                    if "AST" in s:
+                        row["assists"] = int(s.split(" ")[0])
+                    if "MIN" in s:
+                        mins = s.split(" ")[0]
+                        try:
+                            row["minutes"] = int(mins)
+                        except:
+                            row["minutes"] = None
+
+                all_rows.append(row)
+
+    if not all_rows:
+        raise Exception("❌ No game logs found. ESPN API may be empty today.")
+
+    df = pd.DataFrame(all_rows)
 
     os.makedirs("data", exist_ok=True)
     df.to_csv("data/player_game_logs_raw.csv", index=False)
 
-    print(f"Saved RAW logs → data/player_game_logs_raw.csv")
-    print(f"Rows: {len(df)}")
+    print("Saved RAW logs → data/player_game_logs_raw.csv")
+    print("Rows:", len(df))
 
     return df
-
-
-# IMPORTANT: ❗ REMOVE AUTO-RUNNING
-# DO NOT EXECUTE scraper on import.
-# Streamlit Cloud imports all files on startup.
-#
-# if __name__ == "__main__":
-#     scrape_fast()
