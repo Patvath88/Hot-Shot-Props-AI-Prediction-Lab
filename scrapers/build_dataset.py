@@ -1,49 +1,47 @@
+# scrapers/build_dataset.py
+
 import sys, os
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
-sys.path.insert(0, ROOT_DIR)# scrapers/scrape_basic_logs.py
+sys.path.insert(0, ROOT_DIR)
 
 import pandas as pd
-import time
-from tqdm import tqdm
-from nba_api.stats.static import players
-from nba_api.stats.endpoints import playergamelog
+from utils.features import add_basic_features
 
 
-def scrape_basic_game_logs(season="2024-25"):
-    print("Fetching active players...")
-    all_players = players.get_active_players()
-    rows = []
+def build_dataset():
+    print("Loading raw logs...")
 
-    for p in tqdm(all_players, desc="Scraping player logs"):
-        pid = p["id"]
-        name = p["full_name"]
+    raw_path = "data/player_game_logs_raw.csv"
+    if not os.path.exists(raw_path):
+        raise FileNotFoundError("Raw logs missing. Run scraper first.")
 
-        try:
-            logs = playergamelog.PlayerGameLog(
-                player_id=pid, season=season
-            ).get_data_frames()[0]
-            logs["player_name"] = name
-            rows.append(logs)
-        except Exception as e:
-            print(f"Error for {name}: {e}")
+    df = pd.read_csv(raw_path)
 
-        time.sleep(0.4)
+    # Ensure GAME_DATE exists and is parsed
+    if "GAME_DATE" not in df.columns:
+        # NBA API sometimes uses GAME_DATE column in uppercase or lowercase
+        date_col = [c for c in df.columns if c.lower() == "game_date"][0]
+        df.rename(columns={date_col: "GAME_DATE"}, inplace=True)
 
-    df = pd.concat(rows, ignore_index=True)
+    df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
 
-    df = df.rename(columns={
-        "PTS": "points",
-        "REB": "rebounds",
-        "AST": "assists",
-        "MIN": "minutes"
-    })
+    # Must have these before engineering
+    required_base = ["player_name", "points", "rebounds", "assists", "minutes"]
+    for col in required_base:
+        if col not in df:
+            raise ValueError(f"Missing base column: {col}")
 
-    df.to_csv("data/player_game_logs_raw.csv", index=False)
+    # --- APPLY FEATURE ENGINEERING ---
+    df = add_basic_features(df)
 
-    print("Saved → data/player_game_logs_raw.csv")
+    # Print columns for debugging
+    print("Final columns:", list(df.columns))
     print("Rows:", len(df))
+
+    df.to_csv("data/player_game_logs.csv", index=False)
+    print("Saved → data/player_game_logs.csv")
 
 
 if __name__ == "__main__":
-    scrape_basic_game_logs()
+    build_dataset()
