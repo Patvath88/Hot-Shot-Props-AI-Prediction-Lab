@@ -1,32 +1,38 @@
-# scrapers/build_dataset.py
-
-import sys, os
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
-sys.path.insert(0, ROOT_DIR)
-
 import pandas as pd
-from utils.features import add_basic_features
-
+import os
 
 def build_dataset():
-    print("📦 Building dataset...")
-
     raw = "data/player_game_logs_raw.csv"
+
     if not os.path.exists(raw):
-        raise FileNotFoundError("❌ Raw logs missing — run scraper first!")
+        raise Exception("❌ No raw logs found. Run scraper first.")
 
     df = pd.read_csv(raw)
-    df["GAME_DATE"] = pd.to_datetime(df["GAME_DATE"])
 
-    base_cols = ["player_name", "points", "rebounds", "assists", "minutes"]
-    for c in base_cols:
-        if c not in df.columns:
-            raise ValueError(f"❌ Missing column: {c}")
+    df = df.sort_values(["player_name", "GAME_DATE"])
 
-    df = add_basic_features(df)
+    # Rolling windows
+    df["points_rolling_5"] = df.groupby("player_name")["points"].rolling(5).mean().reset_index(0, drop=True)
+    df["rebounds_rolling_5"] = df.groupby("player_name")["rebounds"].rolling(5).mean().reset_index(0, drop=True)
+    df["assists_rolling_5"] = df.groupby("player_name")["assists"].rolling(5).mean().reset_index(0, drop=True)
 
-    os.makedirs("data", exist_ok=True)
-    df.to_csv("data/player_game_logs.csv", index=False)
+    df["minutes_rolling_5"] = df.groupby("player_name")["minutes"].rolling(5).mean().reset_index(0, drop=True)
 
-    print("✅ Dataset saved → data/player_game_logs.csv")
+    df["form_score"] = (
+        df["points_rolling_5"] * 0.5 +
+        df["rebounds_rolling_5"] * 0.2 +
+        df["assists_rolling_5"] * 0.3
+    )
+
+    df = df.dropna()
+
+    out_path = "data/player_game_logs.csv"
+    df.to_csv(out_path, index=False)
+
+    print(f"✅ Dataset built → {out_path} | Rows: {len(df)}")
+
+    return df
+
+
+if __name__ == "__main__":
+    build_dataset()
